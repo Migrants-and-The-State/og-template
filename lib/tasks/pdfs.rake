@@ -1,5 +1,22 @@
+require 'csv'
 require 'pdf-reader'
 require 'vips'
+
+def records
+  @records ||= CSV.open(AFILES_CSV_FILE, headers: :first_row).map(&:to_h)
+end
+
+def records=(records)
+  @records = records
+end
+
+def records_hash 
+  @records_hash ||= pickle(records)
+end
+
+def records_hash=(records_hash)
+  @records_hash = records_hash
+end
 
 def pdf_paths
   @pdfs ||= Dir.glob("#{PDF_DIR}/*.pdf")
@@ -11,6 +28,29 @@ def infer_anum(pdf_path)
   anum
 end
 
+def pickle(array) 
+  array.map { |r| { r['id'].strip => r } }.inject(:merge)
+end
+
+def unpickle(hash)
+  hash.map { |_k, value| value }.sort_by! { |r| r['id']}
+end
+
+def write_to_csv(data, file)
+  CSV.open(file, "wb") do |csv|
+    csv << data.first.keys
+    data.each do |hash|
+      csv << hash.values
+    end
+  end
+end
+
+def deduce_page_count(pdf_path)
+  GC.start
+  PDF::Reader.new(pdf_path).page_count
+end
+
+
 namespace :pdfs do 
   desc 'spit out txt list of anums inferred from pdfs'
   task :anum_txt do
@@ -19,33 +59,41 @@ namespace :pdfs do
     end
     puts "Done ✓"
   end
+
+  desc 'add page count to csv'
+  task :page_count_csv do 
+    pdf_paths.each_with_index do |path, i|
+      anum = infer_anum path
+
+      next puts "skipping #{anum}" unless records_hash.dig(anum, 'page_count').nil?
+      
+      page_count = deduce_page_count path
+      raise "no anum #{anum} found in hash!!!" unless records_hash.key? anum
+      puts "#{anum}: #{page_count} pages"
+
+      records_hash[anum]['page_count'] = page_count
+      write_to_csv(unpickle(records_hash), AFILES_CSV_FILE)
+    end
+  end
   
-  desc 'split pdfs to jpgs, capture results in csvs'
-  task :jpg_csv do
-    File.open(AFILES_CSV_FILE, 'w') { |file| file.puts("id,label,og_pdf_id,page_count") }
-    File.open(PAGES_CSV_FILE, 'w') { |file| file.puts("id,label,a_number,page_number,extracted_text") }
+  desc 'split pdfs to jpgs'
+  task :split_jpgs do
     FileUtils.mkdir_p JPG_DIR
 
     pdf_paths.each_with_index do |path, i|
-      GC.start
-      reader      = PDF::Reader.new path
-      page_count  = reader.page_count
       anum        = infer_anum path
+      page_count  = Integer(records_hash.dig(anum, 'page_count') || deduce_page_count(path))
       dir         = File.join JPG_DIR, anum
-      pdf_data    = [anum,anum,File.basename(path, '.pdf'),page_count]
-    
-      File.open(AFILES_CSV_FILE, 'a') { |f| f.puts pdf_data.join(',') } 
+     
       FileUtils.mkdir_p dir
     
       (0..page_count - 1).each do |index|
         page_num    = index.to_s.rjust(4, "0")
         page_id     = "#{anum}_#{page_num}"
         target      = File.join dir, "#{page_num}.jpg"
-        text        = reader.pages[index].text.to_s.gsub(/\R+/, "|").gsub('"', "'")
-        page_data   = [page_id,page_id,anum,page_num,"\"#{text}\""]
-    
-        File.open(PAGES_CSV_FILE, "a") { |f| f.puts page_data.join(',') }
-    
+
+        next if File.file? target
+  
         img = Vips::Image.pdfload path, page: index, n: 1, dpi: 300
         img = img.thumbnail_image(2500, height: 10000000) if (img.width > 2500)
         img.jpegsave target

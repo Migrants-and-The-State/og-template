@@ -9,6 +9,6 @@ presentation_api_url: 'https://mats-aperitiiif-presenation-api-store-v1.s3.us-ea
 image_api_url:        'https://dctn4zjpwgdwdiiy5odjv7o2se0bqgjb.lambda-url.us-east-1.on.aws/iiif/3'
 
 records:
-  file: 'src/afiles.csv'
+  file: 'src/records.csv'
 
 
