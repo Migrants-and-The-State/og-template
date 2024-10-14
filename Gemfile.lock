@@ -16,6 +16,13 @@ GIT
       safe_yaml
       thor
 
+GIT
+  remote: https://github.com/migrants-and-the-state/og_tasks.git
+  revision: 6c404a92eb070ff5cae56be9cbac387e1de077fa
+  branch: main
+  specs:
+    og_tasks (0.1.0)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -145,8 +152,8 @@ DEPENDENCIES
   aperitiiif!
   aws-sdk-s3 (~> 1)
   dotenv
+  og_tasks!
   pdf-reader
-  rake
 
 BUNDLED WITH
    2.5.16

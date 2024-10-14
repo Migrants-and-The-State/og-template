@@ -1,12 +1,4 @@
-require 'fileutils'
-require 'yaml'
+require 'og_tasks'
 
-
-CONFIG          = YAML.load_file 'config.yml'
-RW_DIR          = File.dirname CONFIG['source_dir']
-PDF_DIR         = File.join RW_DIR, 'pdfs'
-JPG_DIR         = File.join RW_DIR, 'jpgs'
-ANUM_TXT_FILE   = File.join RW_DIR, 'anumbers.txt'
-AFILES_CSV_FILE = CONFIG.dig 'records', 'file'
-
-Dir.glob("lib/tasks/*.rake").each { |r| load r }
+spec = Gem::Specification.find_by_name 'og_tasks'
+Dir.glob("#{spec.gem_dir}/lib/**/*.rake").each { |r| load r }
